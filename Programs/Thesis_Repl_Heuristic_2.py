@@ -11,7 +11,7 @@ tim = []
 dif = []
 
 # Set the seed to 42 to allow for replication
-np.random.seed(42)
+np.random.seed(248)
 
 # Initialise the eps array with the possible values epsilon can take
 eps = [0.005]
@@ -53,7 +53,7 @@ while (counter_times<10):
     counter_times = counter_times + 1
 
 
-for p in range(2,len(products_total)):
+for p in range(0,len(products_total)):
     
     # Create a relaxation and solve it
     model, L_fin, H1_fin, H2_fin, H3_fin = build_problem(products_total[p], shelves_total[p], segments_total[p], True, True,True,True,False,L_total[p], H1_total[p], H2_total[p], H3_total[p], True, True, True, True,products_total[p])
@@ -127,10 +127,14 @@ for p in range(2,len(products_total)):
                         print("yay")
                     
                     for m in model_SSP.shelves:
-                        for l in model_SSP.products:
-                            if (round(model_SSP.x[m,l].solution_value)==1):
-                                selected_products.append(l)
-                                x[i,int(l.prod - 1)]=1
+                        for j1 in model_SSP.products:
+                            if (round(model_SSP.x[m,j1].solution_value)==1):
+                                selected_products.append(j1)
+                                x[int(m.shelf-1),int(j1.prod - 1)]=1
+                                for j2 in model_SSP.products:
+                                    if (round(model_SSP.x[m,j2].solution_value)==1):
+                                        z[int(j1.prod- 1), int(j2.prod- 1)]=1
+                            
                     
                     for l in model_SSP.products:
                         for k in model_SSP.segments:
@@ -145,11 +149,6 @@ for p in range(2,len(products_total)):
                                     q[int(k.seg - 1),int(l.prod- 1)]=1
                                 else:
                                     q[int(k.seg - 1),int(l.prod- 1)]=0
-                                    
-                    for j1 in model_SSP.products:
-                        for j2 in model_SSP.products:
-                            if (round(model_SSP.z[j1,j2].solution_value)==1):
-                                z[int(j1.prod- 1), int(j2.prod- 1)]=1
                     
                     # Step 5 until step 12
                     for (j1,j2) in H3:
@@ -270,18 +269,34 @@ for p in range(2,len(products_total)):
                         
                         for k in diff(model.products, products_allocated):
                             products_fin.append(k)
-                    
-                        for (j1,j2) in H2_fin:
-                            if j2 in products_allocated and j1 not in products_allocated:
-                                for k in products_fin:
-                                    if k.prod==j1.prod:
-                                        products_fin.remove(k)
-                                        
-                        for (j1,j2) in H3_fin:
-                            if ((j1 in products_fin and j2 not in products_fin)):
-                                products_fin.remove(j1)
-
                         
+                        flag_remove = True
+
+                        while (flag_remove==True):
+                            flag_remove=False
+                            for (j1,j2) in H1_fin:
+                                if ((j1 in products_fin and j2 not in products_fin)):
+                                    products_fin.remove(j1)     
+                                    flag_remove=True
+                            
+                            for (j1,j2) in H2_fin:
+                                if j2 in products_allocated and j1 not in products_allocated:
+                                    for k in products_fin:
+                                        if k.prod==j1.prod:
+                                            products_fin.remove(k)
+                                            flag_remove=True
+                                            
+                            for (j1,j2) in H3_fin:
+                                if ((j1 in products_fin and j1 not in products_fin_test and j2 in products_fin and j2 not in products_fin_test) or (j1 in products_fin_test and j2 in products_fin_test)):
+                                    hiya = False
+                                elif (j1 in products_fin):
+                                    products_fin.remove(j1)
+                                    flag_remove = True
+                                    
+                        for k in products_fin_test:
+                            if k not in products_fin:
+                                products_fin.append(k)
+    
                         for k in model.segments:
                             for l in shelves_fin:
                                 if k.shelf == l:
@@ -307,8 +322,8 @@ for p in range(2,len(products_total)):
                         q_prev = q.copy()
                         z_prev = z.copy()
                         
-#                        if check(s_prev, x_prev, y_prev, z_prev, q_prev, model_fin, L, H1, H2, H3)==False:
-#                            exit
+                        if check(s_prev, x_prev, y_prev, z_prev, q_prev, model_fin, L, H1, H2, H3)==False:                            
+                            exit
                         
                         x_track2.append(x_prev)
                         y_track2.append(y_prev)

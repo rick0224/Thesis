@@ -12,7 +12,7 @@ import numpy as np
 
 from itertools import tee
 
-np.random.seed(42)
+np.random.seed(1234)
 
 C_i = 18
 c_k = 6
