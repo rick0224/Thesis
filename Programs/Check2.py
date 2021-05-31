@@ -93,6 +93,10 @@ def check(s_prev, x_prev, y_prev, z_prev, q_prev, model_fin, L, H1, H2, H3):
                     if(s_prev[int(k2.seg-1),int(j.prod-1)] >= 6 * (y_prev[int(k1.seg-1),int(j.prod-1)]+y_prev[int(k3.seg-1),int(j.prod-1)] - 1))==False:
                         print(s_prev[int(k2.seg-1),int(j.prod-1)] >= 6 * (y_prev[int(k1.seg-1),int(j.prod-1)]+y_prev[int(k3.seg-1),int(j.prod-1)] - 1))
                         flag = False
+    for (k1,k2,j) in R:
+        if(y_prev[int(k1.seg-1),int(j.prod-1)]+y_prev[int(k2.seg-1),int(j.prod-1)]<=1):
+            print(j)
+            
     for (j1, j2) in L_array:
         for i in all_shelves:
             if (x_prev[int(i.shelf-1),int(j1.prod-1)] + x_prev[int(i.shelf-1),int(j2.prod-1)] > 1 ):
@@ -109,6 +113,7 @@ def check(s_prev, x_prev, y_prev, z_prev, q_prev, model_fin, L, H1, H2, H3):
         for i in all_shelves:
             if(x_prev[int(i.shelf-1),int(j1.prod-1)] > x_prev[int(i.shelf-1),int(j2.prod-1)]):
                 print(j1.prod)
+                print(i.shelf)
                 flag = False
                 
     for (j1, j2) in H3_array:

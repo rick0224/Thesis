@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Spyder Editor
-
 This is a temporary script file.
 """
 
@@ -10,6 +9,10 @@ from collections import namedtuple
 from docplex.mp.model import Model
 
 import numpy as np
+
+from itertools import tee
+
+np.random.seed(42)
 
 C_i = 18
 c_k = 6
@@ -147,7 +150,7 @@ class TSegs(namedtuple("Seg", ["seg", "shelf", "attr"])):
         return self.name    
 
 
-def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP, x,y,s,q,z,L,H1,H2,H3,**kwargs):
+def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1,H2,H3,L_dummy, H1_dummy, H2_dummy, H3_dummy,products_total,x=0,y=0,s=0,q=0,z=0,**kwargs):
     
     mdl = Model(name='APSA', **kwargs)
     
@@ -158,30 +161,40 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP, x,y
     mdl.segments = [TSegs(*seg_row) for seg_row in segments]
     mdl.shelves = [TShelf(*shelf_row) for shelf_row in shelves]
     
+    mdl.products_total = products_total
+    mdl.products_total = [TProds(*prod_row) for prod_row in products_total]
+    
     all_products = mdl.products
     all_shelves = mdl.shelves
     all_segments = mdl.segments
+    
+    all_products_total = mdl.products_total
     
     L_array = []
     H1_array = []
     H2_array = []
     H3_array = []
     
-    from itertools import chain
-    
-    L_array1 = ((j1,j2) for Z in L for j1 in all_products if j1.prod ==  Z[0][0] for j2 in all_products if j2.prod == Z[1][0])
-    L_array2 = ((j2,j1) for Z in L for j1 in all_products if j1.prod ==  Z[0][0] for j2 in all_products if j2.prod == Z[1][0])
-    L_array = chain(L_array1, L_array2)
-    
-    H1_array1 = ((j1,j2) for Z in H1 for j1 in all_products if j1.prod ==  Z[0][0] for j2 in all_products if j2.prod == Z[1][0])
-    H1_array2 = ((j2,j1) for Z in H1 for j1 in all_products if j1.prod ==  Z[0][0] for j2 in all_products if j2.prod == Z[1][0])
-    H1_array = chain(H1_array1, H1_array2)
-    
-    H2_array = ((j1,j2) for Z in H2 for j1 in all_products if j1.prod ==  Z[0][0] for j2 in all_products if j2.prod == Z[1][0])
-    
-    H3_array1 = ((j1,j2) for Z in H3 for j1 in all_products if j1.prod ==  Z[0][0] for j2 in all_products if j2.prod == Z[1][0])
-    H3_array2 = ((j2,j1) for Z in H3 for j1 in all_products if j1.prod ==  Z[0][0] for j2 in all_products if j2.prod == Z[1][0])
-    H3_array = chain(H3_array1, H3_array2)
+    for j1 in all_products:
+        for j2 in all_products:
+            for Z in L:
+                if (j1.prod ==  Z[0][0] and j2.prod==Z[1][0]):
+                    L_array.append((j1,j2))
+                if (j2.prod ==  Z[0][0] and j1.prod==Z[1][0]):
+                    L_array.append((j1,j2))
+            for Z in H1:
+                if (j1.prod ==  Z[0][0] and j2.prod==Z[1][0]):
+                    H1_array.append((j1,j2))  
+                if (j2.prod ==  Z[0][0] and j1.prod==Z[1][0]):
+                    H1_array.append((j1,j2)) 
+            for Z in H2:
+                if (j1.prod ==  Z[0][0] and j2.prod==Z[1][0]):
+                    H2_array.append((j1,j2))
+            for Z in H3:
+                if (j1.prod ==  Z[0][0] and j2.prod==Z[1][0]):
+                    H3_array.append((j1,j2))
+                if (j2.prod ==  Z[0][0] and j1.prod==Z[1][0]):
+                    H3_array.append((j1,j2))
     
     # --- decision variables ---
     if (rel==True):
@@ -271,41 +284,43 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP, x,y
                 for (k1,k2,k3) in gen:
                     if (k1,k3,j) not in R:
                         mdl.add_constraint(mdl.s[k2,j] >= 6 * (mdl.y[k1,j] + mdl.y[k3,j] - 1))
-    
+    if (L_dummy==True):
         for (j1, j2) in L_array:
             for i in all_shelves:
                 mdl.add_constraint(mdl.x[i,j1] + mdl.x[i,j2] <= 1)
-        
+                    
+    if (H1_dummy==True):
         for (j1, j2) in H1_array:
             for i in all_shelves:
-                mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] <= 0)   
-    
+                mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] <= 0) 
+                    
         for (j1, j2) in H1_array:
             for i in all_shelves:
-                mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] >= 0)   
-        
+                mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] >= 0) 
+                    
+    if (H2_dummy==True): 
         for (j1, j2) in H2_array:
             for i in all_shelves:
                 mdl.add_constraint(mdl.x[i,j1] <= mdl.x[i,j2])  
-            
+  
     if (SSP==False):
-        for (j1, j2) in H3_array:
-            for i in all_shelves:
-                mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] <= 1 - mdl.z[j1,j2])   
-    
-        for (j1, j2) in H3_array:
-            for i in all_shelves:
-                mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] >= -1 + mdl.z[j1,j2])
+        if (H3_dummy==True):
+            for (j1, j2) in H3_array:
+                for i in all_shelves:
+                    mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] <= 1 - mdl.z[j1,j2])   
+
+            for (j1, j2) in H3_array:
+                for i in all_shelves:
+                    mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] >= -1 + mdl.z[j1,j2])
         
-        for (j1, j2) in H3_array:
-            mdl.add_constraint(mdl.z[j1,j2]<=mdl.sum(mdl.x[i,j1] for i in all_shelves))
-    
-        
-        for (j1, j2) in H3_array:
-            mdl.add_constraint(mdl.z[j1,j2]<=mdl.sum(mdl.x[i,j2] for i in all_shelves))
-                
-        for (j1, j2) in H3_array:
-            mdl.add_constraint(mdl.z[j1,j2] >= mdl.sum(mdl.x[i,j1] for i in all_shelves) + mdl.sum(mdl.x[i,j2] for i in all_shelves) - 1)
+            for (j1, j2) in H3_array:
+                mdl.add_constraint(mdl.z[j1,j2]<=mdl.sum(mdl.x[i,j1] for i in all_shelves))
+ 
+            for (j1, j2) in H3_array:
+                mdl.add_constraint(mdl.z[j1,j2]<=mdl.sum(mdl.x[i,j2] for i in all_shelves))
+            
+            for (j1, j2) in H3_array:
+                mdl.add_constraint(mdl.z[j1,j2] >= mdl.sum(mdl.x[i,j1] for i in all_shelves) + mdl.sum(mdl.x[i,j2] for i in all_shelves) - 1)
 
     mdl.maximize(obj)
     
@@ -326,7 +341,7 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP, x,y
     return mdl, L_array, H1_array, H2_array, H3_array
 
 def solve(model, **kwargs):
-    model.parameters.timelimit = 120
+    #model.parameters.timelimit = 
     model.parameters.mip.tolerances.absmipgap = 1e-7
     sol = model.solve(log_output=True, **kwargs)
     return sol
