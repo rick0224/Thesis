@@ -5,24 +5,16 @@ This is a temporary script file.
 """
 
 from collections import namedtuple
-
 from docplex.mp.model import Model
-
 import numpy as np
-
 from itertools import tee
 
-np.random.seed(1234)
-
-C_i = 18
-c_k = 6
-
-N = 240
-B = 30
-K = B * 3
+np.random.seed(45)
 
     
-def init():
+def init(N, B, c_k, C_i):
+    
+    K = B * 3
     
     ell = []
     u = []
@@ -103,34 +95,68 @@ def init():
     
     count = 0
     
+    products_chosen = []
+    
+
+    
     while count < 5:
         
-        prod_1 = np.floor(np.random.uniform(0,N))
-        prod_2 = np.floor(np.random.uniform(0,N))
-        while (prod_1 == prod_2):
+        chosen = True
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,N))
             prod_2 = np.floor(np.random.uniform(0,N))
+            
+            while (prod_1 == prod_2):
+                prod_2 = np.floor(np.random.uniform(0,N))
+            
+            if (prod_1 not in products_chosen and prod_2 not in products_chosen):
+                chosen = False
+                products_chosen.append(prod_1)
+                products_chosen.append(prod_2)
         
         L.append((PRODUCTS[int(prod_1)],PRODUCTS[int(prod_2)]))
         
-        prod_1 = np.floor(np.random.uniform(0,N))
-        prod_2 = np.floor(np.random.uniform(0,N))
-        while (prod_1 == prod_2):
+        chosen = True
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,N))
             prod_2 = np.floor(np.random.uniform(0,N))
+            while (prod_1 == prod_2):
+                prod_2 = np.floor(np.random.uniform(0,N))
+                
+            if (prod_1 not in products_chosen and prod_2 not in products_chosen):
+                chosen = False    
+                products_chosen.append(prod_1)
+                products_chosen.append(prod_2)
         
         H1.append((PRODUCTS[int(prod_1)],PRODUCTS[int(prod_2)]))
         
-        prod_1 = np.floor(np.random.uniform(0,N))
-        prod_2 = np.floor(np.random.uniform(0,N))
-        while (prod_1 == prod_2):
+        chosen = True
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,N))
             prod_2 = np.floor(np.random.uniform(0,N))
-        
+            while (prod_1 == prod_2):
+                prod_2 = np.floor(np.random.uniform(0,N))
+            
+            if (prod_1 not in products_chosen and prod_2 not in products_chosen):
+                chosen = False   
+                products_chosen.append(prod_1)
+                products_chosen.append(prod_2)
+                
         H2.append((PRODUCTS[int(prod_1)],PRODUCTS[int(prod_2)]))
         
-        prod_1 = np.floor(np.random.uniform(0,N))
-        prod_2 = np.floor(np.random.uniform(0,N))
-        while (prod_1 == prod_2):
-            prod_2 = np.floor(np.random.uniform(0,N))
+        chosen = True
         
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,N))
+            prod_2 = np.floor(np.random.uniform(0,N))
+            while (prod_1 == prod_2):
+                prod_2 = np.floor(np.random.uniform(0,N))
+        
+            if (prod_1 not in products_chosen and prod_2 not in products_chosen):
+                chosen = False  
+                products_chosen.append(prod_1)
+                products_chosen.append(prod_2)
+                
         H3.append((PRODUCTS[int(prod_1)],PRODUCTS[int(prod_2)]))   
         
         count = count + 1
@@ -150,7 +176,7 @@ class TSegs(namedtuple("Seg", ["seg", "shelf", "attr"])):
         return self.name    
 
 
-def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1,H2,H3,L_dummy, H1_dummy, H2_dummy, H3_dummy,products_total,x=0,y=0,s=0,q=0,z=0,**kwargs):
+def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1,H2,H3,L_dummy, H1_dummy, H2_dummy, H3_dummy,products_total,c_k,x=0,y=0,s=0,q=0,z=0,**kwargs):
     
     mdl = Model(name='APSA', **kwargs)
     
@@ -341,22 +367,34 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
     return mdl, L_array, H1_array, H2_array, H3_array
 
 def solve(model, **kwargs):
-    #model.parameters.timelimit = 
+    model.parameters.timelimit = 3600
     model.parameters.mip.tolerances.absmipgap = 1e-7
     sol = model.solve(log_output=True, **kwargs)
     return sol
 
-def haha(model, **kwargs):
-    obj_array = np.zeros((K))
-    obj_array_shelf = np.zeros((K))
-    
-    obj2=0
-    
-    for k in model.segments:
-        obj2 = sum((j[3]* k[2] * model.s[k,j].solution_value / c_k) for j in model.products)
-        obj_array[int(k.seg)-1] = obj2
-    
-    for i in model.shelves:
-        obj_array_shelf[int(i.shelf)-1] =  sum(sum((j[3]* k[2] * model.s[k,j].solution_value / c_k) for k in model.segments if k.shelf==i.shelf) for j in model.products)
+from cplex._internal._subinterfaces import CutType
+
+def get_cut_stats(mdl):
+    """ Computes a dicitonary of cut name -> number of cuts used
+    Args:
+        mdl: an instance of `docplex.mp.Model`
+    Returns:
+        a dictionary of string -> int,, from cut type to number used (nonzero).
+        Unused cut types ar enot mentioned
+    Example:
+        For delivered model "nurses"
+        # {'cover': 88, 'GUB_cover': 9, 'flow_cover': 6, 'fractional': 5, 'MIR': 9, 'zero_half': 9, 'lift_and_project': 5}
+    """
+    cut_stats = {}
+    cpx = mdl.cplex
+    cut_type_instance = CutType()
+    summation = 0
+    for ct in cut_type_instance:
+        num = cpx.solution.MIP.get_num_cuts(ct)
+        summation = summation + num
         
-    return obj_array, obj_array_shelf
+        if num:
+            cutname = cut_type_instance[ct]
+            cut_stats[cutname] = num
+
+    return summation

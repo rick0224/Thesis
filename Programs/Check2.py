@@ -5,7 +5,7 @@ Created on Tue May 25 17:56:31 2021
 
 @author: rickkessels
 """
-def check(s_prev, x_prev, y_prev, z_prev, q_prev, model_fin, L, H1, H2, H3):
+def check(s_prev, x_prev, y_prev, z_prev, q_prev, model_fin, L, H1, H2, H3, L_dummy, H1_dummy, H2_dummy, H3_dummy):
     flag = True
     all_segments = model_fin.segments
     all_shelves = model_fin.shelves
@@ -97,53 +97,58 @@ def check(s_prev, x_prev, y_prev, z_prev, q_prev, model_fin, L, H1, H2, H3):
         if(y_prev[int(k1.seg-1),int(j.prod-1)]+y_prev[int(k2.seg-1),int(j.prod-1)]<=1):
             print(j)
             
-    for (j1, j2) in L_array:
-        for i in all_shelves:
-            if (x_prev[int(i.shelf-1),int(j1.prod-1)] + x_prev[int(i.shelf-1),int(j2.prod-1)] > 1 ):
-                print(j1)
-                flag = False
+    if (L_dummy==True):
+            
+        for (j1, j2) in L_array:
+            for i in all_shelves:
+                if (x_prev[int(i.shelf-1),int(j1.prod-1)] + x_prev[int(i.shelf-1),int(j2.prod-1)] > 1 ):
+                    print(j1)
+                    flag = False
+    
+    if (H1_dummy==True):
         
-    for (j1, j2) in H1_array:
-        for i in all_shelves:
-            if(x_prev[int(i.shelf-1),int(j1.prod-1)] - x_prev[int(i.shelf-1),int(j2.prod-1)] > 0):
-                print(j1.prod)
-                flag = False
-        
-    for (j1, j2) in H2_array:
-        for i in all_shelves:
-            if(x_prev[int(i.shelf-1),int(j1.prod-1)] > x_prev[int(i.shelf-1),int(j2.prod-1)]):
-                print(j1.prod)
-                print(i.shelf)
-                flag = False
+        for (j1, j2) in H1_array:
+            for i in all_shelves:
+                if(x_prev[int(i.shelf-1),int(j1.prod-1)] - x_prev[int(i.shelf-1),int(j2.prod-1)] > 0):
+                    print(j1.prod)
+                    flag = False
+    if (H2_dummy == True):
+        for (j1, j2) in H2_array:
+            for i in all_shelves:
+                if(x_prev[int(i.shelf-1),int(j1.prod-1)] > x_prev[int(i.shelf-1),int(j2.prod-1)]):
+                    print(j1.prod)
+                    print(i.shelf)
+                    flag = False
+    
+    if (H3_dummy == True):
+        for (j1, j2) in H3_array:
+            for i in all_shelves:
+                if(x_prev[int(i.shelf-1),int(j1.prod-1)] - x_prev[int(i.shelf-1),int(j2.prod-1)] > 1 - z_prev[int(j1.prod-1),int(j2.prod-1)]):
+                    print(j1.prod)
+                    flag= False
+            
+        for (j1, j2) in H3_array:
+            for i in all_shelves:
+                if(x_prev[int(i.shelf-1),int(j1.prod-1)] - x_prev[int(i.shelf-1),int(j2.prod-1)] < -1 + z_prev[int(j1.prod-1),int(j2.prod-1)]):
+                    print(j1.prod)
+                    flag = False
                 
-    for (j1, j2) in H3_array:
-        for i in all_shelves:
-            if(x_prev[int(i.shelf-1),int(j1.prod-1)] - x_prev[int(i.shelf-1),int(j2.prod-1)] > 1 - z_prev[int(j1.prod-1),int(j2.prod-1)]):
-                print(j1.prod)
-                flag= False
-        
-    for (j1, j2) in H3_array:
-        for i in all_shelves:
-            if(x_prev[int(i.shelf-1),int(j1.prod-1)] - x_prev[int(i.shelf-1),int(j2.prod-1)] < -1 + z_prev[int(j1.prod-1),int(j2.prod-1)]):
+        for (j1, j2) in H3_array:
+            if(z_prev[int(j1.prod-1),int(j2.prod-1)]>sum(x_prev[int(i.shelf-1),int(j1.prod-1)] for i in all_shelves)):
+               print(j1.prod)
+               flag = False
+            
+                
+        for (j1, j2) in H3_array:
+            if(z_prev[int(j1.prod-1),int(j2.prod-1)]>sum(x_prev[int(i.shelf-1),int(j2.prod-1)] for i in all_shelves)):
                 print(j1.prod)
                 flag = False
-            
-    for (j1, j2) in H3_array:
-        if(z_prev[int(j1.prod-1),int(j2.prod-1)]>sum(x_prev[int(i.shelf-1),int(j1.prod-1)] for i in all_shelves)):
-           print(j1.prod)
-           flag = False
-        
-            
-    for (j1, j2) in H3_array:
-        if(z_prev[int(j1.prod-1),int(j2.prod-1)]>sum(x_prev[int(i.shelf-1),int(j2.prod-1)] for i in all_shelves)):
-            print(j1.prod)
-            flag = False
-                    
-            
-    for (j1, j2) in H3_array:
-        if(z_prev[int(j1.prod-1),int(j2.prod-1)] < sum(x_prev[int(i.shelf-1),int(j1.prod-1)] for i in all_shelves) + sum(x_prev[int(i.shelf-1),int(j2.prod-1)] for i in all_shelves) - 1):
-            print(j1.prod)
-            flag = False
+                        
+                
+        for (j1, j2) in H3_array:
+            if(z_prev[int(j1.prod-1),int(j2.prod-1)] < sum(x_prev[int(i.shelf-1),int(j1.prod-1)] for i in all_shelves) + sum(x_prev[int(i.shelf-1),int(j2.prod-1)] for i in all_shelves) - 1):
+                print(j1.prod)
+                flag = False
     
     return flag
                     
