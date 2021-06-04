@@ -7,9 +7,9 @@ Created on Mon May 31 23:04:02 2021
 """
 
 import numpy as np
-from Thesis_Repl_APSA import build_problem, solve
+from extension import build_problem, solve
 
-def algorithm_1(lmbd, products_total, shelves_total, segments_total, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k):
+def algorithm_1(lmbd, products_total, shelves_total, segments_total, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, c_k):
     # Algorithm 1 starts here
         
     # Calculate sigma, and initialize other variables
@@ -48,7 +48,19 @@ def algorithm_1(lmbd, products_total, shelves_total, segments_total, L_tot, H1_t
         # Step 3
         shelf = [shelves_total[shelf_i]]
         segments = [segments_total[shelf_i*3], segments_total[shelf_i*3+1], segments_total[shelf_i*3+2]]
-        model_SSP, L, H1, H2, H3 = build_problem(products, shelf, segments, False, True,True,True,True, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, products, c_k)
+        relax = False
+        first = True
+        ineq2 = True
+        ineq3 = True
+        SSP = True
+        
+        CS1 = False
+        CS2 = False
+        CS3 = False
+        CS4 = False
+        CS5 = False
+        
+        model_SSP, L, H1, H2, H3, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelf, segments, relax, first, ineq2, ineq3, SSP, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, CS1, CS2, CS3, CS4, CS5, products_total, c_k)
         solve(model_SSP)
         
         track.append(model_SSP)

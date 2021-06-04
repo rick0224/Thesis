@@ -6,13 +6,13 @@ Created on Tue Jun  1 00:06:07 2021
 @author: rickkessels
 """
 
-from Thesis_Repl_APSA import build_problem, solve
+from extension import build_problem, solve
 from Check2 import check
 from Algorithm_1 import diff
 import numpy as np
 import timeit
 
-def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k, no_aff):
+def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, c_k, aff, products_total):
     
     t_end = 0
         # Step 2
@@ -46,9 +46,9 @@ def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x,
     time_lim = 1000
     # Stopping conditions (Step 6 and 20)
     if (tau==2 or tau==3):
-        time_lim = 1000
-    if (no_aff==False):
         time_lim = 120
+    if (aff==True):
+        time_lim = 300
         
     while (t_end-t_start<time_lim and count < 10 and (upperbound-r)/upperbound>epsilon):
         
@@ -149,9 +149,15 @@ def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x,
             
             shelves_fin = [[i] for i in shelves_fin]
             
-            # Step 15
-            model_fin, L, H1, H2, H3 = build_problem(products_fin, shelves_fin, segments_fin, False, False,True,True,False, L_tot, H1_tot, H2_tot, H3_tot,L_dummy, H1_dummy, H2_dummy, H3_dummy,model.products,c_k,x,y,s,q, z)
+            CS1 = False
+            CS2 = False
+            CS3 = False
+            CS4 = False
+            CS5 = False
             
+            # Step 15
+            model_fin, L, H1, H2, H3, P, Q, R, S = build_problem(products_fin, shelves_fin, segments_fin, False, False,True,True,False, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, CS1, CS2, CS3, CS4, CS5, products_total,c_k,x,y,s,q, z)
+
             if flag2==True:
                 model_fin.add_mip_start(file_sol)
             else:
@@ -244,4 +250,4 @@ def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x,
     time = t_end-t_start
     gap = (upperbound-r)/upperbound
     
-    return gap, time
+    return gap, time, res

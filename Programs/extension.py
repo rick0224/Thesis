@@ -9,9 +9,8 @@ from docplex.mp.model import Model
 import numpy as np
 from itertools import tee
 
-np.random.seed(42)
-
-    
+np.random.seed(45)
+ 
 def init(N, B, c_k, C_i):
     
     K = B * 3
@@ -92,6 +91,10 @@ def init(N, B, c_k, C_i):
     H1 = []
     H2 = []
     H3 = []
+    P = []
+    Q = []
+    R = []
+    S = []
     
     count = 0
     
@@ -159,9 +162,54 @@ def init(N, B, c_k, C_i):
                 
         H3.append((PRODUCTS[int(prod_1)],PRODUCTS[int(prod_2)]))   
         
+        chosen = True
+        
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,N))
+      
+            if (prod_1 not in products_chosen):
+                chosen = False  
+                products_chosen.append(prod_1)
+                
+        P.append((PRODUCTS[int(prod_1)]))   
+        
+        chosen = True
+        
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,N))
+
+
+        
+            if (prod_1 not in products_chosen):
+                chosen = False  
+                products_chosen.append(prod_1)
+                
+        Q.append((PRODUCTS[int(prod_1)]))           
+        
+        chosen = True
+        
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,B*3))
+
+            if (prod_1 not in products_chosen):
+                chosen = False  
+                products_chosen.append(prod_1)
+                
+        R.append((SEGMENTS[int(prod_1)]))   
+        chosen = True
+        
+        while (chosen == True):
+            prod_1 = np.floor(np.random.uniform(0,B*3))
+
+        
+            if (prod_1 not in products_chosen):
+                chosen = False  
+                products_chosen.append(prod_1)
+                
+        S.append((SEGMENTS[int(prod_1)]))           
         count = count + 1
              
-    return PRODUCTS, SHELVES, SEGMENTS, lmbd, L, H1, H2, H3
+    return PRODUCTS, SHELVES, SEGMENTS, lmbd, L, H1, H2, H3, P, Q, R, S
 
 class TProds(namedtuple("Prod", ["prod", "lower", "upper", "profit", "minreq"])):
     def __str__(self):
@@ -176,31 +224,33 @@ class TSegs(namedtuple("Seg", ["seg", "shelf", "attr"])):
         return self.name    
 
 
-def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1,H2,H3,L_dummy, H1_dummy, H2_dummy, H3_dummy,products_total,c_k,x=0,y=0,s=0,q=0,z=0,**kwargs):
+def build_problem(products, shelves, segments, relaxation, first, ineq2, ineq3, SSP, L, H1, H2, H3, L_dummy, H1_dummy, H2_dummy, H3_dummy, P, Q, R, S, CS1, CS2, CS3, CS4, CS5, products_total, c_k, x=0, y=0, s=0, q=0, z=0, **kwargs):
     
+    # Initializing a model
     mdl = Model(name='APSA', **kwargs)
-    
-    mdl.products = products
-    mdl.segments = segments
-    
+
+    # Storing all "current" products, segments, shelves, and total products in sets that the model can utilize later.
     mdl.products = [TProds(*prod_row) for prod_row in products]
     mdl.segments = [TSegs(*seg_row) for seg_row in segments]
     mdl.shelves = [TShelf(*shelf_row) for shelf_row in shelves]
-    
-    mdl.products_total = products_total
     mdl.products_total = [TProds(*prod_row) for prod_row in products_total]
     
+    # For simplicity, we're storing the sets into variables.
     all_products = mdl.products
     all_shelves = mdl.shelves
     all_segments = mdl.segments
     
-    all_products_total = mdl.products_total
-    
+    # Initializing empty arrays that we can store the products in later.
     L_array = []
     H1_array = []
     H2_array = []
     H3_array = []
+    P_array = []
+    Q_array = []
+    R_array = []
+    S_array = []
     
+    # Going through all product(s) (combinations) to store these into the right arrays.
     for j1 in all_products:
         for j2 in all_products:
             for Z in L:
@@ -221,29 +271,57 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
                     H3_array.append((j1,j2))
                 if (j2.prod ==  Z[0][0] and j1.prod==Z[1][0]):
                     H3_array.append((j1,j2))
+        for Z in P:
+            if (j1.prod == Z[0]):
+                P_array.append(j1)
+        for Z in Q:
+            if (j1.prod == Z[0]):
+                Q_array.append(j1)
     
+    # Storing the high-attraction shelves and low-attraction shelves in the R_array and S_array respectively.            
+    for j1 in all_segments:
+        for Z in R:
+            if (j1.seg == Z[0]):
+                R_array.append(j1)
+        for Z in S:        
+            if (j1.seg == Z[0]):
+                S_array.append(j1)
+                
     # --- decision variables ---
-    if (rel==True):
+    if (relaxation==True): # If we need to do a relaxation, we want to make all binary variables continuous between 0 and 1.
         mdl.x = mdl.continuous_var_matrix(all_shelves, all_products, 0, 1)
         mdl.y = mdl.continuous_var_matrix(all_segments, all_products, 0, 1)
         mdl.s = mdl.continuous_var_matrix(all_segments, all_products)
         mdl.z = mdl.continuous_var_matrix(all_products, all_products, 0, 1)
         mdl.q = mdl.continuous_var_matrix(all_segments, all_products, 0, 1)
-    else:
+    else: # If no relaxation is required, we just want to keep the variables in the same "shape" as they are supposed to.
         mdl.x = mdl.binary_var_matrix(all_shelves, all_products)
         mdl.y = mdl.binary_var_matrix(all_segments, all_products)
         mdl.s = mdl.continuous_var_matrix(all_segments, all_products)
         mdl.z = mdl.binary_var_matrix(all_products, all_products)
         mdl.q = mdl.binary_var_matrix(all_segments, all_products)
         
-    # --- objective ---
+    # --- objective function ---
     obj = mdl.sum(mdl.sum(j[3]* k[2] * mdl.s[k,j] / c_k for k in all_segments) for j in all_products)
     
+    
     # --- constraints ---
-        
+    
+    # constraint 1b
+    if (CS4==True): # If the fourth health-related constraint needs to be added, we adjust constraint 1b a bit.
+        for j in all_products:
+            if j not in P_array:
+                mdl.add_constraint(mdl.sum(mdl.x[i,j] for i in all_shelves) <= 1)
+            else:
+                mdl.add_constraint(mdl.sum(mdl.x[i,j] for i in all_shelves) <= 3)  
+                
+    else: # Else we just keep the original constraint formulation
+        for j in all_products:
+            mdl.add_constraint(mdl.sum(mdl.x[i,j] for i in all_shelves) <= 1)                   
+                   
     # constraint 1c
     for k in all_segments:
-        mdl.add_constraint(mdl.sum(mdl.s[k,j] for j in all_products)<= 6)
+        mdl.add_constraint(mdl.sum(mdl.s[k,j] for j in all_products)<= c_k)
             
     # constraint 1d1
     for j in all_products:
@@ -262,6 +340,21 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
     for j in all_products:
         for k in all_segments:
             mdl.add_constraint(mdl.s[k,j] <= min(c_k, j.upper) * mdl.y[k,j]) 
+    
+    temp = ((k1,k2) for k1 in all_segments for k2 in all_segments if k1.seg<k2.seg and k1.shelf == k2.shelf)
+    gen = ((k1,k2,k3) for k1 in all_segments for k2 in all_segments for k3 in all_segments if k1.shelf == k2.shelf == k3.shelf and k1.seg<k2.seg<k3.seg)
+    R = ((k1,k2,j) for (k1,k2) in temp for j in all_products if ((k2.seg-k1.seg-1)*6>j.upper-2*j.minreq))                      
+                 
+    # constraint 1f              
+    if (ineq3==True):
+        for j in all_products:
+            for (k1,k2,k3) in gen:
+                if (k1,k3,j) not in R:
+                    mdl.add_constraint(mdl.s[k2,j] >= c_k * (mdl.y[k1,j] + mdl.y[k3,j] - 1))
+    else:
+        for j in all_products:
+            for (k1,k2,k3) in gen:
+                mdl.add_constraint(mdl.s[k2,j] >= c_k * (mdl.y[k1,j] + mdl.y[k3,j] - 1))             
             
     # constraint 1g
     for i in all_shelves:
@@ -281,7 +374,7 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
         for j in all_products:
             gen1 = (k for k in all_segments if k.shelf == i.shelf and k.seg%3!=0)
             gen2 = (k for k in all_segments if k.shelf == i.shelf and k.seg%3!=1)
-            gen_total = ((k1,k2) for k1 in gen1 for k2 in gen2 if k1.shelf==k2.shelf)
+            gen_total = ((k1,k2) for k1 in gen1 for k2 in gen2 if k1.shelf==k2.shelf and k1.seg<k2.seg)
             for (k1,k2) in gen_total:
                 mdl.add_constraint(mdl.q[k1,j] >= mdl.y[k1,j] + mdl.y[k2,j] - 1)
     
@@ -291,10 +384,6 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
         for k in gen1:
             mdl.add_constraint(mdl.sum(mdl.q[k,j] for j in all_products)<=1)
 
-    # constraint 1b
-    for j in all_products:
-        mdl.add_constraint(mdl.sum(mdl.x[i,j] for i in all_shelves) <= 1)
-        
     if (ineq2==True):
         temp = ((k1,k2) for k1 in all_segments for k2 in all_segments if k1.seg<k2.seg and k1.shelf == k2.shelf)
         R = ((k1,k2,j) for (k1,k2) in temp for j in all_products if ((k2.seg-k1.seg-1)*6>j.upper-2*j.minreq))
@@ -302,24 +391,17 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
         for (k1,k2,j) in R:
             mdl.add_constraint(mdl.y[k1,j]+mdl.y[k2,j]<=1)
             
-        if (ineq3==True):
-            
-            gen = ((k1,k2,k3) for k1 in all_segments for k2 in all_segments for k3 in all_segments if k1.shelf == k2.shelf == k3.shelf and k1.seg<k2.seg<k3.seg)            
-            temp = ((k1,k2) for k1 in all_segments for k2 in all_segments if k1.seg<k2.seg and k1.shelf == k2.shelf)            
-            R = ((k1,k2,j) for (k1,k2) in temp for j in all_products if ((k2.seg-k1.seg-1)*6>j.upper-2*j.minreq))
-                   
-            # constraint 1f
-            for j in all_products:
-                for (k1,k2,k3) in gen:
-                    if (k1,k3,j) not in R:
-                        mdl.add_constraint(mdl.s[k2,j] >= 6 * (mdl.y[k1,j] + mdl.y[k3,j] - 1))
-    
-    if (L_dummy==True):
+    if (L_dummy == True): # If we want to include the affinity matrix L into the model.
+        
+        # constraint 1k
         for (j1, j2) in L_array:
             for i in all_shelves:
                 mdl.add_constraint(mdl.x[i,j1] + mdl.x[i,j2] <= 1)
+
                     
-    if (H1_dummy==True):
+    if (H1_dummy==True): # If we want to include the affinity matrix H1 into the model.
+        
+        # constraint 1l
         for (j1, j2) in H1_array:
             for i in all_shelves:
                 mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] <= 0) 
@@ -327,34 +409,63 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
         for (j1, j2) in H1_array:
             for i in all_shelves:
                 mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] >= 0) 
-                    
-    if (H2_dummy==True): 
+ 
+                   
+    if (H2_dummy==True): # If we want to include the affinity matrix H2 into the model.
+        
+        # constraint 1m
         for (j1, j2) in H2_array:
             for i in all_shelves:
                 mdl.add_constraint(mdl.x[i,j1] <= mdl.x[i,j2])  
+
   
-    if (SSP==False):
-        if (H3_dummy==True):
+    if (SSP==False): # We don't include any constraints on H3 when we're doing the SSP model.
+       
+        if (H3_dummy==True): # However, if we do not do the SSP model, and we want to include the affinity matrix H3 into the model...
+            
+            # constraint 1n
             for (j1, j2) in H3_array:
                 for i in all_shelves:
                     mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] <= 1 - mdl.z[j1,j2])   
-
+            
+            # constraint 1o
             for (j1, j2) in H3_array:
                 for i in all_shelves:
                     mdl.add_constraint(mdl.x[i,j1] - mdl.x[i,j2] >= -1 + mdl.z[j1,j2])
-        
+            
+            # constraint 1p
             for (j1, j2) in H3_array:
                 mdl.add_constraint(mdl.z[j1,j2]<=mdl.sum(mdl.x[i,j1] for i in all_shelves))
- 
+            
+            # constraint 1q
             for (j1, j2) in H3_array:
                 mdl.add_constraint(mdl.z[j1,j2]<=mdl.sum(mdl.x[i,j2] for i in all_shelves))
             
+            # constraint 1r
             for (j1, j2) in H3_array:
                 mdl.add_constraint(mdl.z[j1,j2] >= mdl.sum(mdl.x[i,j1] for i in all_shelves) + mdl.sum(mdl.x[i,j2] for i in all_shelves) - 1)
 
+    if (CS1 == True):           
+        for j in P_array:
+            for k in all_segments:
+                if k not in S_array:
+                    mdl.add_constraint(mdl.y[k,j]>=0)
+                    mdl.add_constraint(mdl.y[k,j]<=0)
+
+    if (CS2 == True):            
+        for j in P_array:
+            mdl.add_constraint(mdl.sum(mdl.y[k,j] for k in S_array) >= 1)
+    
+    if (CS3 == True):
+        for j in Q_array:
+            for k in S_array:
+                    mdl.add_constraint(mdl.y[k,j]>=0)
+                    mdl.add_constraint(mdl.y[k,j]<=0)
+                
     mdl.maximize(obj)
     
     if (first==False):
+    
         warmstart=mdl.new_solution()
         for j in mdl.products:
             for k in mdl.segments:
@@ -368,10 +479,10 @@ def build_problem(products, shelves, segments, rel, first, ineq2, ineq3,SSP,L,H1
                 
         mdl.add_mip_start(warmstart)    
     
-    return mdl, L_array, H1_array, H2_array, H3_array
+    return mdl, L_array, H1_array, H2_array, H3_array, P_array, Q_array, R_array, S_array
 
 def solve(model, **kwargs):
-    model.parameters.timelimit = 3600
+    model.parameters.timelimit = 30
     model.parameters.mip.tolerances.absmipgap = 1e-7
     sol = model.solve(log_output=True, **kwargs)
     return sol
