@@ -2,6 +2,9 @@ from extension import init, build_problem, solve, get_cut_stats
 from Check2 import check
 from Algorithm_1 import algorithm_1, diff
 from Algorithm_2 import algorithm_2
+from heuristic import heuristic
+from healthconstraints import healthconstraints
+from solToExcel import solToExcel
 import numpy as np
 import timeit
 import sys
@@ -44,10 +47,10 @@ S_total = []
 counter_instances=0
 
 # We want to create a new instance of a certain data set 10 times
-while (counter_instances<1):
+while (counter_instances<10):
 
-    N = 240
-    B = 30
+    N = 320
+    B = 40
     c_k = 6
     C_i = 18
     
@@ -96,16 +99,45 @@ for p in range(0,len(products_total)):
     CS5 = False
     
     first = True
+    APSA_TOTAL = True
     
     # Calculate APSA with the two inequalities
     model, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
     
     # Solve APSA, and store all information we need into arrays
     solve(model)
-    cuts.append(get_cut_stats(model))
-    fin.append(model.solve_details.gap)
-    tim.append(model.solve_details.time)
-    descr.append("APSA with the two inequalities")
+    bb = model.solve_details.best_bound
+    
+    if (p==-1):
+    
+        descr_string = "APSA_TwoInequalities"
+        
+        solToExcel(model, descr_string)
+    
+        sum_healthy = 0
+        count_healthy_segs = 0
+        count_healthy =  0
+        for j in P_tot:
+            for k in model.segments:
+                if model.s[k,j].solution_value>0:
+                    count_healthy_segs = count_healthy_segs + 1
+                    sum_healthy = sum_healthy + (k.attr * model.s[k,j].solution_value)/c_k
+            if (sum(model.s[k,j].solution_value for k in model.segments)>0):
+                count_healthy = count_healthy+1
+        avg_healthy = sum_healthy / len(P_tot)
+         
+        sum_unhealthy = 0
+        count_unhealthy_segs = 0
+        count_unhealthy = 0
+        for j in Q_tot:
+            for k in model.segments:
+                if model.s[k,j].solution_value>0:
+                    count_unhealthy_segs = count_unhealthy_segs + 1
+                    sum_unhealthy = sum_unhealthy + + (k.attr * model.s[k,j].solution_value)/c_k
+            if (sum(model.s[k,j].solution_value for k in model.segments)>0):
+                count_unhealthy = count_unhealthy+1
+        avg_unhealthy = sum_unhealthy / len(Q_tot)
+    
     
     descr_start = "Instance "+str(p+1)+" of N="+str(N)+",B="+str(B)
     descr_array = np.array(descr_start)
@@ -116,49 +148,342 @@ for p in range(0,len(products_total)):
     with open('Results.txt', 'a') as f:
         print("---- BEGIN OF DATA SET INSTANCE "+str(p+1)+" ----", file=f)
         print('APSA with the two inequalities: ', file=f)
-        print('Cuts: '+str(get_cut_stats(model)), file=f)
+        print('B&B/C: '+str(model.solve_details.nb_nodes_processed), file=f)
+        print("Objective: "+str(model.objective_value), file=f)
+        print("Best bound: "+str(model.solve_details.best_bound), file=f)
         print('Gap: '+str(model.solve_details.gap), file=f)
-        print('Time: '+str(model.solve_details.time)+'\n', file=f)
+        print('Time: '+str(model.solve_details.time), file=f)
+        if (p==-1):
+            print('Healthy: '+str(count_healthy) + ', Segments: '+str(count_healthy_segs)+', Average: '+str(avg_healthy), file=f)
+            print('Unhealthy: '+str(count_unhealthy) + ', Segments: '+str(count_unhealthy_segs)+', Average: '+str(avg_unhealthy)+'\n', file=f)
+            
+    if (p==-1):       
         
+        CS1 = True
+        CS2 = False
+        CS3 = False
+        CS4 = False
+        CS5 = False
+        
+        CSString = "CS1"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+        
+        CS1 = False
+        CS2 = True
+        CS3 = False
+        CS4 = False
+        CS5 = False    
+    
+        CSString = "CS2"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = False
+        CS2 = False
+        CS3 = True
+        CS4 = False
+        CS5 = False    
+    
+        CSString = "CS3"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+     
+        CS1 = False
+        CS2 = False
+        CS3 = False
+        CS4 = True
+        CS5 = False    
+    
+        CSString = "CS4"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = False
+        CS2 = False
+        CS3 = False
+        CS4 = False
+        CS5 = True   
+    
+        CSString = "CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = False
+        CS4 = False
+        CS5 = False   
+    
+        CSString = "CS1 + CS2"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+          
+        CS1 = True
+        CS2 = False
+        CS3 = True
+        CS4 = False
+        CS5 = False   
+    
+        CSString = "CS1 + CS3"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+            
+        CS1 = True
+        CS2 = False
+        CS3 = False
+        CS4 = True
+        CS5 = False   
+    
+        CSString = "CS1 + CS4"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = False
+        CS3 = False
+        CS4 = False
+        CS5 = True  
+    
+        CSString = "CS1 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+           
+        CS1 = False
+        CS2 = True
+        CS3 = True
+        CS4 = False
+        CS5 = False  
+    
+        CSString = "CS2 + CS3"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+           
+        CS1 = False
+        CS2 = True
+        CS3 = False
+        CS4 = True
+        CS5 = False  
+    
+        CSString = "CS2 + CS4"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+            
+        CS1 = False
+        CS2 = True
+        CS3 = False
+        CS4 = False
+        CS5 = True 
+    
+        CSString = "CS2 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+     
+        
+        CS1 = False
+        CS2 = False
+        CS3 = True
+        CS4 = True
+        CS5 = False
+    
+        CSString = "CS3 + CS4"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+        
+        CS1 = False
+        CS2 = False
+        CS3 = True
+        CS4 = False
+        CS5 = True 
+    
+        CSString = "CS3 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = False
+        CS2 = False
+        CS3 = False
+        CS4 = True
+        CS5 = True 
+    
+        CSString = "CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = True
+        CS4 = False
+        CS5 = False
+    
+        CSString = "CS1 + CS2 + CS3"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = False
+        CS4 = True
+        CS5 = False
+    
+        CSString = "CS1 + CS2 + CS4"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = False
+        CS4 = False
+        CS5 = True
+    
+        CSString = "CS1 + CS2 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = False
+        CS3 = True
+        CS4 = True
+        CS5 = False
+    
+        CSString = "CS1 + CS3 + CS4"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = False
+        CS3 = True
+        CS4 = False
+        CS5 = True
+    
+        CSString = "CS1 + CS3 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = False
+        CS3 = False
+        CS4 = True
+        CS5 = True
+    
+        CSString = "CS1 + CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = False
+        CS2 = True
+        CS3 = True
+        CS4 = True
+        CS5 = False
+    
+        CSString = "CS2 + CS3 + CS4"
+        
+        CS1 = False
+        CS2 = True
+        CS3 = True
+        CS4 = False
+        CS5 = True
+    
+        CSString = "CS2 + CS3 + CS5"
+        
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = False
+        CS2 = True
+        CS3 = False
+        CS4 = True
+        CS5 = True
+    
+        CSString = "CS2 + CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = False
+        CS2 = False
+        CS3 = True
+        CS4 = True
+        CS5 = True
+    
+        CSString = "CS3 + CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = True
+        CS4 = True
+        CS5 = False
+    
+        CSString = "CS1 + CS2 + CS3 + CS4"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = True
+        CS4 = False
+        CS5 = True
+    
+        CSString = "CS1 + CS2 + CS3 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = False
+        CS4 = True
+        CS5 = True
+    
+        CSString = "CS1 + CS2 + CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = False
+        CS3 = True
+        CS4 = True
+        CS5 = True
+    
+        CSString = "CS1 + CS3 + CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = False
+        CS2 = True
+        CS3 = True
+        CS4 = True
+        CS5 = True
+    
+        CSString = "CS2 + CS3 + CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+    
+        CS1 = True
+        CS2 = True
+        CS3 = True
+        CS4 = True
+        CS5 = True
+    
+        CSString = "CS1 + CS2 + CS3 + CS4 + CS5"
+        healthconstraints(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, CSString)
+                   
     # Calculate APSA with only the first inequality
     
-    ineq2 = True
-    ineq3 = False
+   # ineq2 = True
+   # ineq3 = False
     
-    model, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
+   # model, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
     
     # Solve APSA, and store all information we need into arrays
-    solve(model)
-    cuts.append(get_cut_stats(model))
-    fin.append(model.solve_details.gap)
-    tim.append(model.solve_details.time)
-    descr.append("APSA with only inequality (2)")
+  #  solve(model)
+   # cuts.append(get_cut_stats(model))
+   # fin.append(model.solve_details.gap)
+   # tim.append(model.solve_details.time)
+   # descr.append("APSA with only inequality (2)")
     
-    with open('Results.txt', 'a') as f:
-        print('APSA with only inequality (2): ', file=f)
-        print('Cuts: '+str(get_cut_stats(model)), file=f)
-        print('Gap: '+str(model.solve_details.gap), file=f)
-        print('Time: '+str(model.solve_details.time)+'\n', file=f)
+   # with open('Results.txt', 'a') as f:
+   #     print('APSA with only inequality (2): ', file=f)
+   #     print('Cuts: '+str(get_cut_stats(model)), file=f)
+   #     print('Gap: '+str(model.solve_details.gap), file=f)
+   #     print('Time: '+str(model.solve_details.time)+'\n', file=f)
         
     # Calculate APSA with no inequalities
     
-    ineq2 = False
-    ineq3 = False
+  #  ineq2 = False
+  #  ineq3 = False
     
-    model, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
+  #  model, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
   
     # Solve APSA, and store all information we need into arrays
-    solve(model)
-    cuts.append(get_cut_stats(model))
-    fin.append(model.solve_details.gap)
-    tim.append(model.solve_details.time)
-    descr.append("APSA with none of the inequalities")
+  #  solve(model)
+  #  cuts.append(get_cut_stats(model))
+  #  fin.append(model.solve_details.gap)
+  #  tim.append(model.solve_details.time)
+  #  descr.append("APSA with none of the inequalities")
     
-    with open('Results.txt', 'a') as f:
-        print('APSA with none of the inequalities: ', file=f)
-        print('Cuts: '+str(get_cut_stats(model)), file=f)
-        print('Gap: '+str(model.solve_details.gap), file=f)
-        print('Time: '+str(model.solve_details.time)+'\n', file=f)        
+  #  with open('Results.txt', 'a') as f:
+  #      print('APSA with none of the inequalities: ', file=f)
+  #      print('Cuts: '+str(get_cut_stats(model)), file=f)
+  #      print('Gap: '+str(model.solve_details.gap), file=f)
+  #      print('Time: '+str(model.solve_details.time)+'\n', file=f) 
+
+    CS1 = False
+    CS2 = False
+    CS3 = False
+    CS4 = False
+    CS5 = False
     
     # Make each possible combination of the values for tau and epsilon
     for tau in t:
@@ -182,6 +507,12 @@ for p in range(0,len(products_total)):
                     H2_dummy = False
                     H3_dummy = False
                     
+                    CS1 = False
+                    CS2 = False
+                    CS3 = False
+                    CS4 = False
+                    CS5 = False
+                    
                     #----- Model with affinity: L ------------------------------------------------------------------------------------------------------------------------------------------------------------------
                     
                     aff = True
@@ -189,39 +520,15 @@ for p in range(0,len(products_total)):
                     # Initialize the time
                     t_start = timeit.default_timer()
                     t_end=0
+            
                     
                     # Put affinity dummy L to True
                     L_dummy = True
                     
-                    # Calculate associated relaxation
-                    model_L, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
-                    solve(model_L)
+                    CSString = "L"
                     
-                    # Store objective value of relaxation into "upperbound". This is our upper bound as described in Step 1 of Algorithm 2.
-                    upperbound = model_L.objective_value
-                    
-                    # Call algorithm 1
-                    allocation, r_star, x, y, s, q, z = algorithm_1(lmbd, products, shelves, segments, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot,L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k)
-                    
-                    # Call algorithm 2
-                    gap, time,res = algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model_L, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k, aff)
-                    
-                    # Store results into arrays
-                    fin.append(gap)
-                    tim.append(time)
-                    descr.append("tau = 4, epsilon = 0.005, L only")
-                    
-                    res_tot = np.hstack((description,res))
-                    
-                    with open('Results.csv', 'a', newline='') as file:
-                        writer = csv.writer(file)
-                        writer.writerow((res_tot))
-                    
-                    with open('Results.txt', 'a') as f:
-                        print('', file=f)
-                        print('tau = 4, epsilon = 0.005, L only: ', file=f)
-                        print('Gap: '+str(gap), file=f)
-                        print('Time: '+str(time)+'\n', file=f)
+                    heuristic(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, lmbd, epsilon, tau, aff, CSString, t_start, bb)
+
                     
                     #----- Model with affinity: H1 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
                   
@@ -233,35 +540,9 @@ for p in range(0,len(products_total)):
                     L_dummy = False
                     H1_dummy = True
                     
-                    # Calculate associated relaxation
-                    model_H1, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
-                    solve(model_H1)
+                    CSString = "H1"
                     
-                    # Store objective value of relaxation into "upperbound". This is our upper bound as described in Step 1 of Algorithm 2.
-                    upperbound = model_H1.objective_value
-                    
-                    # Call algorithm 1
-                    allocation, r_star, x, y, s, q, z = algorithm_1(lmbd, products, shelves, segments, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k)
-                    
-                    # Call algorithm 2
-                    gap, time, res = algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model_H1, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k, aff)
-                    
-                    # Store results into arrays
-                    fin.append(gap)
-                    tim.append(time)
-                    descr.append("tau = 4, epsilon = 0.005, H1 only")
-                    
-                    res_tot = np.hstack((description,res))
-                    
-                    with open('Results.csv', 'a', newline='') as file:
-                        writer = csv.writer(file)
-                        writer.writerow((res_tot))
-                 
-                    with open('Results.txt', 'a') as f:
-                        print('', file=f)
-                        print('tau = 4, epsilon = 0.005, H1 only: ', file=f)
-                        print('Gap: '+str(gap), file=f)
-                        print('Time: '+str(time)+'\n', file=f)
+                    heuristic(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, lmbd, epsilon, tau, aff, CSString, t_start, bb)
 
                     #----- Model with affinity: H2 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
                   
@@ -273,35 +554,9 @@ for p in range(0,len(products_total)):
                     H1_dummy = False
                     H2_dummy = True
                     
-                    # Calculate associated relaxation
-                    model_H2, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
-                    solve(model_H2)
+                    CSString = "H2"
                     
-                    # Store objective value of relaxation into "upperbound". This is our upper bound as described in Step 1 of Algorithm 2.
-                    upperbound = model_H2.objective_value
-                    
-                    # Call algorithm 1
-                    allocation, r_star, x, y, s, q, z = algorithm_1(lmbd, products, shelves, segments, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k)
-                    
-                    # Call algorithm 2
-                    gap, time, res = algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model_H2, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k, aff)
-                    
-                    # Store results into arrays
-                    fin.append(gap)
-                    tim.append(time)       
-                    descr.append("tau = 4, epsilon = 0.005, H2 only")
-                    
-                    res_tot = np.hstack((description,res))
-                    
-                    with open('Results.csv', 'a', newline='') as file:
-                        writer = csv.writer(file)
-                        writer.writerow((res_tot))
-                    
-                    with open('Results.txt', 'a') as f:
-                        print('', file=f)
-                        print('tau = 4, epsilon = 0.005, H2 only: ', file=f)
-                        print('Gap: '+str(gap), file=f)
-                        print('Time: '+str(time)+'\n', file=f)
+                    heuristic(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, lmbd, epsilon, tau, aff, CSString, t_start, bb)
                     
                     #----- Model with affinity: H3 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
                   
@@ -313,35 +568,10 @@ for p in range(0,len(products_total)):
                     H2_dummy = False
                     H3_dummy = True
                     
-                    # Calculate associated relaxation
-                    model_H3, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
-                    solve(model_H3)
+                    CSString = "H3"
                     
-                    # Store objective value of relaxation into "upperbound". This is our upper bound as described in Step 1 of Algorithm 2.
-                    upperbound = model_H3.objective_value
-                    
-                    # Call algorithm 1
-                    allocation, r_star, x, y, s, q, z = algorithm_1(lmbd, products, shelves, segments, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k)
-                    
-                    # Call algorithm 2
-                    gap, time, res = algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model_H3, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k, aff)
-                    
-                    # Store results into arrays
-                    fin.append(gap)
-                    tim.append(time)       
-                    descr.append("tau = 4, epsilon = 0.005, H3 only")
+                    heuristic(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, lmbd, epsilon, tau, aff, CSString, t_start, bb)
 
-                    res_tot = np.hstack((description,res))
-                    
-                    with open('Results.csv', 'a', newline='') as file:
-                        writer = csv.writer(file)
-                        writer.writerow((res_tot))  
-                    
-                    with open('Results.txt', 'a') as f:
-                        print('', file=f)
-                        print('tau = 4, epsilon = 0.005, H3 only: ', file=f)
-                        print('Gap: '+str(gap), file=f)
-                        print('Time: '+str(time)+'\n', file=f)
                     
                     #----- Model with affinity: L, H1, H2, H3 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
                   
@@ -355,36 +585,10 @@ for p in range(0,len(products_total)):
                     H2_dummy = True
                     H3_dummy = True
                     
-                    # Calculate associated relaxation
-                    model_all, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
-                    solve(model_all)
+                    CSString = "L, H1, H2, H3"
                     
-                    # Store objective value of relaxation into "upperbound". This is our upper bound as described in Step 1 of Algorithm 2.
-                    upperbound = model_all.objective_value
-                    
-                    # Call algorithm 1
-                    allocation, r_star, x, y, s, q, z = algorithm_1(lmbd, products, shelves, segments, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k)
-                    
-                    # Call algorithm 2
-                    gap, time, res = algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model_H3, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, c_k, aff)
-                    
-                    # Store results into arrays
-                    fin.append(gap)
-                    tim.append(time)       
-                    descr.append("tau = 4, epsilon = 0.005, all")
-                    
-                    res_tot = np.hstack((description,res))
-                    
-                    with open('Results.csv', 'a', newline='') as file:
-                        writer = csv.writer(file)
-                        writer.writerow((res_tot))                  
-                    
-                    with open('Results.txt', 'a') as f:
-                        print('', file=f)
-                        print('tau = 4, epsilon = 0.005, all: ', file=f)
-                        print('Gap: '+str(gap), file=f)
-                        print('Time: '+str(time)+'\n', file=f)
-                
+                    heuristic(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, lmbd, epsilon, tau, aff, CSString, t_start, bb)
+
                 #----- Model without affinity ------------------------------------------------------------------------------------------------------------------------------------------------------------------
                 
                 # Initialize the time
@@ -401,36 +605,13 @@ for p in range(0,len(products_total)):
                 
                 aff = False
                 
-                # Calculate associated relaxation
-                model_none, L_tot, H1_tot, H2_tot, H3_tot, P_tot, Q_tot, R_tot, S_tot = build_problem(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k)
-                solve(model_none)
+                CSString = "No affinity"
                 
-                # Store objective value of relaxation into "upperbound". This is our upper bound as described in Step 1 of Algorithm 2.
-                upperbound = model_none.objective_value
-                
-                # Call algorithm 1
-                allocation, r_star, x, y, s, q, z = algorithm_1(lmbd, products, shelves, segments, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, c_k)
+                heuristic(products, shelves, segments, relax, first, ineq2, ineq3, SSP, L_total[p], H1_total[p], H2_total[p], H3_total[p], L_dummy, H1_dummy, H2_dummy, H3_dummy, P_total[p], Q_total[p], R_total[p], S_total[p], CS1, CS2, CS3, CS4, CS5, products_total[p], c_k, lmbd, epsilon, tau, aff, CSString, t_start, bb)
 
-                # Call algorithm 2
-                gap, time, res = algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model_none, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, c_k, aff, products_total[p])
-
-                # Store results into arrays
-                fin.append(gap)
-                tim.append(time)
-                description = "tau = "+str(tau)+", epsilon = "+str(epsilon)+", none"
-                descr.append(description)
-                
-                res_tot = np.hstack((description,res))
-                
-                with open('Results.csv', 'a', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow((res_tot))
-                
-                with open('Results.txt', 'a') as f:
-                    print('tau = '+str(tau)+', epsilon = '+str(epsilon)+', none: ', file=f)
-                    print('Gap: '+str(gap), file=f)
-                    print('Time: '+str(time)+'\n', file=f)
                     
                 if (tau==4 and epsilon==0.015):
                     with open('Results.txt', 'a') as f:
                         print("---- END OF DATA SET INSTANCE "+str(p+1)+" ----", file=f)
+                        
+                        

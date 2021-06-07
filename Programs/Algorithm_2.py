@@ -12,7 +12,9 @@ from Algorithm_1 import diff
 import numpy as np
 import timeit
 
-def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, c_k, aff, products_total):
+np.random.seed(42)
+
+def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x, y, s, q, z, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, c_k, aff, products_total, CS1, CS2, CS3, CS4, CS5):
     
     t_end = 0
         # Step 2
@@ -46,11 +48,11 @@ def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x,
     time_lim = 1000
     # Stopping conditions (Step 6 and 20)
     if (tau==2 or tau==3):
-        time_lim = 120
+        time_lim = 1000
     if (aff==True):
-        time_lim = 300
+        time_lim = 450
         
-    while (t_end-t_start<time_lim and count < 10 and (upperbound-r)/upperbound>epsilon):
+    while (t_end-t_start<time_lim and count < 50 and (upperbound-r)/upperbound>epsilon):
         
         prev_obj = (upperbound-r)/upperbound
         # Step 7
@@ -69,9 +71,14 @@ def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x,
             # Step 10
             omega = np.floor(len(delta)/tau)
             
+            remainder = len(delta) % tau
+            
             # Step 11 and 12
             for k in range(1, tau+1):
-                i = int(np.round(np.floor(np.random.uniform(((k-1)*omega+1),k*omega+1)),0))
+                if (k>=tau-remainder+1):
+                    i = int(np.round(np.floor(np.random.uniform(((k-1)*omega+1+(k-tau+remainder-1)),k*omega+1+(k-tau+remainder))),0))
+                else:
+                    i = int(np.round(np.floor(np.random.uniform(((k-1)*omega+1),k*omega+1)),0))
                 print(i)
                 for l in model.shelves:
                     if (delta[i-1]+1 == l.shelf):
@@ -148,12 +155,6 @@ def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x,
                         segments_fin.append(k)
             
             shelves_fin = [[i] for i in shelves_fin]
-            
-            CS1 = False
-            CS2 = False
-            CS3 = False
-            CS4 = False
-            CS5 = False
             
             # Step 15
             model_fin, L, H1, H2, H3, P, Q, R, S = build_problem(products_fin, shelves_fin, segments_fin, False, False,True,True,False, L_tot, H1_tot, H2_tot, H3_tot, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_tot, Q_tot, R_tot, S_tot, CS1, CS2, CS3, CS4, CS5, products_total,c_k,x,y,s,q, z)
@@ -250,4 +251,11 @@ def algorithm_2(allocation, r_star, t_start, upperbound, epsilon, model, tau, x,
     time = t_end-t_start
     gap = (upperbound-r)/upperbound
     
-    return gap, time, res
+    if (time > time_lim):
+        reason = "Time limit reached"
+    elif (count >= 50):
+        reason = "No improvement in 50 iterations"
+    elif ((upperbound-r)/upperbound<=epsilon):
+        reason = "Gap < Epsilon!"
+    
+    return gap, time, res, r, reason

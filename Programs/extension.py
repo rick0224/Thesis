@@ -9,7 +9,7 @@ from docplex.mp.model import Model
 import numpy as np
 from itertools import tee
 
-np.random.seed(45)
+np.random.seed(42)
  
 def init(N, B, c_k, C_i):
     
@@ -45,23 +45,23 @@ def init(N, B, c_k, C_i):
         B_array.append(i)
         
     for k in range(1,K+1):
-        if (k<K/5.0):
+        if (k<=K/5.0):
             if (k%3==2):
                 f_k_instance=np.random.uniform(0.05, 0.10)
             else:
                 f_k_instance=np.random.uniform(0.11, 0.15)
-        elif (k<2*K/5.0):
+        elif (k<=2*K/5.0):
             if (k%3==2):
                 f_k_instance=np.random.uniform(0.25, 0.30)
             else:
                 f_k_instance=np.random.uniform(0.31, 0.35)            
-        elif (k<3*K/5.0): 
+        elif (k<=3*K/5.0): 
             if (k%3==2):
                 f_k_instance=np.random.uniform(0.45, 0.50)
             else:
                 f_k_instance=np.random.uniform(0.51, 0.55)  
             
-        elif (k<4*K/5.0):
+        elif (k<=4*K/5.0):
             if (k%3==2):
                 f_k_instance=np.random.uniform(0.65, 0.70)
             else:
@@ -99,9 +99,7 @@ def init(N, B, c_k, C_i):
     count = 0
     
     products_chosen = []
-    
 
-    
     while count < 5:
         
         chosen = True
@@ -178,35 +176,16 @@ def init(N, B, c_k, C_i):
         while (chosen == True):
             prod_1 = np.floor(np.random.uniform(0,N))
 
-
-        
             if (prod_1 not in products_chosen):
                 chosen = False  
                 products_chosen.append(prod_1)
                 
         Q.append((PRODUCTS[int(prod_1)]))           
         
-        chosen = True
+        for k in range(1,K+1):
+            if (k>3*K/5.0):
+                S.append((SEGMENTS[int(k-1)]))   
         
-        while (chosen == True):
-            prod_1 = np.floor(np.random.uniform(0,B*3))
-
-            if (prod_1 not in products_chosen):
-                chosen = False  
-                products_chosen.append(prod_1)
-                
-        R.append((SEGMENTS[int(prod_1)]))   
-        chosen = True
-        
-        while (chosen == True):
-            prod_1 = np.floor(np.random.uniform(0,B*3))
-
-        
-            if (prod_1 not in products_chosen):
-                chosen = False  
-                products_chosen.append(prod_1)
-                
-        S.append((SEGMENTS[int(prod_1)]))           
         count = count + 1
              
     return PRODUCTS, SHELVES, SEGMENTS, lmbd, L, H1, H2, H3, P, Q, R, S
@@ -224,10 +203,15 @@ class TSegs(namedtuple("Seg", ["seg", "shelf", "attr"])):
         return self.name    
 
 
-def build_problem(products, shelves, segments, relaxation, first, ineq2, ineq3, SSP, L, H1, H2, H3, L_dummy, H1_dummy, H2_dummy, H3_dummy, P, Q, R, S, CS1, CS2, CS3, CS4, CS5, products_total, c_k, x=0, y=0, s=0, q=0, z=0, **kwargs):
+def build_problem(products, shelves, segments, relaxation, first, ineq2, ineq3, SSP, L, H1, H2, H3, L_dummy, H1_dummy, H2_dummy, H3_dummy, P_ar, Q_ar, R_ar, S_ar, CS1, CS2, CS3, CS4, CS5, products_total, c_k, x=0, y=0, s=0, q=0, z=0, **kwargs):
     
     # Initializing a model
     mdl = Model(name='APSA', **kwargs)
+    
+    if (CS5==True):
+        for j in range(0,len(P_ar)):
+            P_ar[j][1]=3
+            P_ar[j][2]=6
 
     # Storing all "current" products, segments, shelves, and total products in sets that the model can utilize later.
     mdl.products = [TProds(*prod_row) for prod_row in products]
@@ -271,20 +255,26 @@ def build_problem(products, shelves, segments, relaxation, first, ineq2, ineq3, 
                     H3_array.append((j1,j2))
                 if (j2.prod ==  Z[0][0] and j1.prod==Z[1][0]):
                     H3_array.append((j1,j2))
-        for Z in P:
-            if (j1.prod == Z[0]):
-                P_array.append(j1)
-        for Z in Q:
-            if (j1.prod == Z[0]):
-                Q_array.append(j1)
     
+    P_ar = np.array(P_ar)
+    Q_ar = np.array(Q_ar)
+    for j1 in all_products:                
+        for h in range(0,len(P_ar)):
+            if (j1.prod == P_ar[h][0]):
+                P_array.append(j1)
+        for h in range(0,len(Q_ar)):
+            if (j1.prod == Q_ar[h][0]):
+                Q_array.append(j1)
+                
+    S_ar = np.array(S_ar)
+    R_ar = np.array(R_ar)
     # Storing the high-attraction shelves and low-attraction shelves in the R_array and S_array respectively.            
     for j1 in all_segments:
-        for Z in R:
-            if (j1.seg == Z[0]):
-                R_array.append(j1)
-        for Z in S:        
-            if (j1.seg == Z[0]):
+        for h in range(0,len(R_ar)):
+            if (j1.seg == R_ar[h][0]):
+                R_array.append(j1)       
+        for h in range(0,len(S_ar)):
+            if (j1.seg == S_ar[h][0]):
                 S_array.append(j1)
                 
     # --- decision variables ---
@@ -481,8 +471,8 @@ def build_problem(products, shelves, segments, relaxation, first, ineq2, ineq3, 
     
     return mdl, L_array, H1_array, H2_array, H3_array, P_array, Q_array, R_array, S_array
 
-def solve(model, **kwargs):
-    model.parameters.timelimit = 30
+def solve(model, time_limit=3600, **kwargs):
+    model.parameters.timelimit = time_limit
     model.parameters.mip.tolerances.absmipgap = 1e-7
     sol = model.solve(log_output=True, **kwargs)
     return sol
